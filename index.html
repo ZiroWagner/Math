@@ -46,7 +46,7 @@
             color: #555;
         }
 
-        input[type="text"], select {
+        input[type="text"],input [type="number"], select {
             background: transparent;
             width: 100%;
             padding: 10px;
@@ -139,6 +139,12 @@
             <input type="text" id="intervaloB" placeholder="Ingrese el valor de B">
         </div>
 
+        <div class="form-group">
+            <label for="error">Margen de error (opcional):</label>
+            <input type="number" id="error" placeholder="Ej: 0.05" step="0.00001" />
+        </div>
+        
+
         <button onclick="calcular()">Calcular</button>
 
         <div class="table-container">
@@ -171,13 +177,22 @@
             const intervaloA = parseFloat(document.getElementById("intervaloA").value);
             const intervaloB = parseFloat(document.getElementById("intervaloB").value);
 
+            // Obtener el margen de error personalizado si está disponible
+            let margenErrorUsuario = parseFloat(document.getElementById("error").value);
+
             let resultados = [];
             let errorRelativo = 100;
             let iteracion = 0;
             const maxIteraciones = 50;
             
             // Obtener la función seleccionada y el margen de error correspondiente
-            const { f, margenError } = obtenerFuncionYError(funcionSeleccionada);
+            //const { f, margenError } = obtenerFuncionYError(funcionSeleccionada);
+
+            // Obtener la función seleccionada y el margen de error por defecto
+            const { f, margenError: margenErrorPorDefecto } = obtenerFuncionYError(funcionSeleccionada);
+            
+            // Si el usuario ingresó un margen de error válido, usarlo, de lo contrario usar el margen por defecto
+            let margenError = margenErrorUsuario && !isNaN(margenErrorUsuario) ? margenErrorUsuario : margenErrorPorDefecto;
 
             // Variables para Bisección, Falsa Posición, e Híbrido
             let a = intervaloA, b = intervaloB, xnuevo, xanterior = 0;
