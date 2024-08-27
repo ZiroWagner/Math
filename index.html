@@ -174,6 +174,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.0.0/math.min.js"></script>
+
     <script>
         let chart;
 
@@ -196,20 +198,6 @@
                 document.getElementById("funcion").value === "custom" ? "block" : "none";
         }
 
-        function formatearFuncion(funcion) {
-            return funcion.replace(/sin|sen/g, "Math.sin")
-                .replace(/cos/g, "Math.cos")
-                .replace(/tan/g, "Math.tan")
-                .replace(/log/g, "Math.log")
-                .replace(/ln/g, "Math.log")
-                .replace(/sqrt/g, "Math.sqrt")
-                .replace(/exp/g, "Math.exp")
-                .replace(/pi/gi, "Math.PI")
-                .replace(/e\b/gi, "Math.E")
-                .replace(/([0-9\.]+)([a-zA-Z])/g, '$1*$2')
-                .replace(/([a-zA-Z0-9\.\(\)]+)\^([\-]?[0-9\.]+)/g, 'Math.pow($1, $2)');
-        }
-
         function calcular() {
             const funcionSeleccionada = document.getElementById("funcion").value;
             const metodoSeleccionado = document.getElementById("metodo").value;
@@ -220,10 +208,17 @@
 
             if (funcionSeleccionada === "custom") {
                 let funcionPersonalizada = document.getElementById("funcionPersonalizada").value;
+                console.log("Función procesada: ", funcionPersonalizada); // Log para verificar la función procesada
                 try {
-                    f = new Function('x', `return ${formatearFuncion(funcionPersonalizada)};`);
+                    // Validar y construir la función utilizando Math.js
+                    const node = math.parse(funcionPersonalizada);
+                    const code = node.compile(); // Compilar el código con Math.js
+
+                    // Probar la función con un valor
+                    f = (x) => code.evaluate({ x });
                 } catch (e) {
-                    alert("La función personalizada ingresada no es válida.");
+                    console.error("La función personalizada ingresada no es válida.",funcionPersonalizada);
+                    console.error(e.message);
                     return;
                 }
                 margenError = margenErrorUsuario || 0.01;
