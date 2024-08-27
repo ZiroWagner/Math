@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -42,13 +41,13 @@
         }
 
         label {
+            display: block;
             font-weight: bold;
             margin-bottom: 5px;
             color: #000;
         }
 
-        input,
-        select {
+        input[type="text"], [type="number"], select {
             color: #000;
             background: transparent;
             width: 100%;
@@ -69,7 +68,6 @@
             border-radius: 4px;
             cursor: pointer;
             width: 100%;
-            margin-bottom: 10px;
         }
 
         button:hover {
@@ -79,7 +77,7 @@
 
         .table-container {
             width: 100%;
-            overflow-x: auto;
+            overflow-x:auto;
         }
 
         table {
@@ -88,8 +86,7 @@
             margin-top: 20px;
         }
 
-        th,
-        td {
+        th, td {
             padding: 10px;
             border: 1px solid #ddd;
             text-align: center;
@@ -111,11 +108,10 @@
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <h1>Métodos Numéricos</h1>
-
+        
         <div class="form-group">
             <label for="funcion">Selecciona o ingresa una función personalizada:</label>
             <select id="funcion" onchange="toggleFuncionInput()">
@@ -149,9 +145,9 @@
 
         <div class="form-group">
             <label for="error">Margen de error (opcional):</label>
-            <input type="number" id="error" placeholder="Tolerancia: 0.01" step="0.01">
+            <input type="number" id="error" placeholder="Tolerancia: 0.01" step="0.01" />
         </div>
-
+        
         <button onclick="calcular()">Calcular</button>
 
         <div class="table-container">
@@ -165,7 +161,9 @@
                         <th>Error Relativo (%)</th>
                     </tr>
                 </thead>
-                <tbody></tbody>
+                <tbody>
+                    <!-- Resultados -->
+                </tbody>
             </table>
         </div>
 
@@ -174,40 +172,18 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
+
     <script>
         let chart;
 
-        const funcionesPredefinidas = {
-            f1: (x) => x - Math.cos(x),
-            f2: (x) => Math.pow(x, 3) - x - 1,
-            f3: (x) => Math.pow(x, 2) - 2,
-            f4: (x) => x - 4 + Math.log(x)
-        };
-
-        const margenesError = {
-            f1: 0.05,
-            f2: 0.05,
-            f3: 0.00001,
-            f4: 0.001
-        };
-
         function toggleFuncionInput() {
-            document.getElementById("funcionPersonalizada").style.display = 
-                document.getElementById("funcion").value === "custom" ? "block" : "none";
-        }
-
-        function formatearFuncion(funcion) {
-            return funcion.replace(/sin|sen/g, "Math.sin")
-                .replace(/cos/g, "Math.cos")
-                .replace(/tan/g, "Math.tan")
-                .replace(/log/g, "Math.log")
-                .replace(/ln/g, "Math.log")
-                .replace(/sqrt/g, "Math.sqrt")
-                .replace(/exp/g, "Math.exp")
-                .replace(/pi/gi, "Math.PI")
-                .replace(/e\b/gi, "Math.E")
-                .replace(/([0-9\.]+)([a-zA-Z])/g, '$1*$2')
-                .replace(/([a-zA-Z0-9\.\(\)]+)\^([\-]?[0-9\.]+)/g, 'Math.pow($1, $2)');
+            const select = document.getElementById("funcion");
+            const input = document.getElementById("funcionPersonalizada");
+            if (select.value === "custom") {
+                input.style.display = "block";
+            } else {
+                input.style.display = "none";
+            }
         }
 
         function calcular() {
@@ -215,58 +191,108 @@
             const metodoSeleccionado = document.getElementById("metodo").value;
             const intervaloA = parseFloat(document.getElementById("intervaloA").value);
             const intervaloB = parseFloat(document.getElementById("intervaloB").value);
-            const margenErrorUsuario = parseFloat(document.getElementById("error").value);
-            let f, margenError;
+            let funcionPersonalizada = document.getElementById("funcionPersonalizada").value;
 
-            if (funcionSeleccionada === "custom") {
-                let funcionPersonalizada = document.getElementById("funcionPersonalizada").value;
+            // Obtener el margen de error personalizado si está disponible
+            let margenErrorUsuario = parseFloat(document.getElementById("error").value);
+
+            let resultados = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            const maxIteraciones = 50;
+
+            let f, margenError;
+            
+             // Validar y obtener la función seleccionada
+            if (funcionSeleccionada === "custom" && funcionPersonalizada) {
+                // Reemplazar funciones matemáticas comunes por Math.*
+                funcionPersonalizada = funcionPersonalizada
+                    .replace(/sin/g, "Math.sin")
+                    .replace(/sen/g, "Math.sin")
+                    .replace(/cos/g, "Math.cos")
+                    .replace(/tan/g, "Math.tan")
+                    .replace(/log/g, "Math.log")
+                    .replace(/ln/g, "Math.log")
+                    .replace(/sqrt/g, "Math.sqrt")
+                    .replace(/exp/g, "Math.exp")
+                    .replace(/pi/gi, "Math.PI")
+                    .replace(/e\b/gi, "Math.E")
+                    .replace(/([0-9\.]+)([a-zA-Z])/g, '$1*$2')
+                    .replace(/([a-zA-Z0-9\.\(\)]+)\^([\-]?[0-9\.]+)/g, 'Math.pow($1, $2)');
+
                 try {
-                    f = new Function('x', `return ${formatearFuncion(funcionPersonalizada)};`);
+                    // Crear la función con x como argumento
+                    f = new Function('x', `return ${funcionPersonalizada};`);
+                    console.log("Funcion personalizada: ",f)
                 } catch (e) {
-                    alert("La función personalizada ingresada no es válida.");
+                    alert("La función personalizada ingresada no es válida.",f);
                     return;
                 }
-                margenError = margenErrorUsuario || 0.01;
+                margenError = parseFloat(document.getElementById("error").value) || 0.01; // Margen de error por defecto
             } else {
-                f = funcionesPredefinidas[funcionSeleccionada];
-                margenError = margenErrorUsuario || margenesError[funcionSeleccionada];
+                console.log("Funcion por defecto")
+                 // Obtener la función seleccionada y el margen de error por defecto
+                const { f: funcionPredefinida, margenError: margenErrorPorDefecto } = obtenerFuncionYError(funcionSeleccionada);
+
+                f = funcionPredefinida;
+            
+                // Si el usuario ingresó un margen de error válido, usarlo, de lo contrario usar el margen por defecto
+                margenError = margenErrorUsuario && !isNaN(margenErrorUsuario) ? margenErrorUsuario : margenErrorPorDefecto;
             }
 
-            let a = intervaloA,
-                b = intervaloB,
-                xnuevo, xanterior = 0,
-                errorRelativo = 100,
-                iteracion = 0,
-                resultados = [],
-                maxIteraciones = 50,
-                raizAproximada = null;
+            // Variables para Bisección, Falsa Posición, e Híbrido
+            let a = intervaloA, b = intervaloB, xnuevo, xanterior = 0;
+            let raizAproximada = null; // Variable para guardar la raíz aproximada final
 
             while (errorRelativo > margenError && iteracion < maxIteraciones) {
                 iteracion++;
-                let xnuevoBiseccion = (a + b) / 2;
-                let xnuevoFalsaPosicion = (a * f(b) - b * f(a)) / (f(b) - f(a));
+                
+                let xnuevoBiseccion, xnuevoFalsaPosicion;
+
+                if (metodoSeleccionado === "biseccion" || metodoSeleccionado === "hibrido") {
+                    xnuevoBiseccion = (a + b) / 2;
+                }
+                if (metodoSeleccionado === "falsaPosicion" || metodoSeleccionado === "hibrido") {
+                    xnuevoFalsaPosicion = (a * f(b) - b * f(a)) / (f(b) - f(a));
+                }
 
                 if (metodoSeleccionado === "hibrido") {
+                    // Comparar los resultados de ambos métodos
                     const errorBiseccion = Math.abs((xnuevoBiseccion - xanterior) / xnuevoBiseccion) * 100;
                     const errorFalsaPosicion = Math.abs((xnuevoFalsaPosicion - xanterior) / xnuevoFalsaPosicion) * 100;
-                    xnuevo = errorFalsaPosicion < errorBiseccion ? xnuevoFalsaPosicion : xnuevoBiseccion;
+                    
+                    // Elegir el método que proporcione la mejor aproximación
+                    if (errorFalsaPosicion < errorBiseccion) {
+                        xnuevo = xnuevoFalsaPosicion;
+                    } else {
+                        xnuevo = xnuevoBiseccion;
+                    }
                 } else if (metodoSeleccionado === "biseccion") {
                     xnuevo = xnuevoBiseccion;
-                } else {
+                } else if (metodoSeleccionado === "falsaPosicion") {
                     xnuevo = xnuevoFalsaPosicion;
                 }
 
-                if (f(a) * f(xnuevo) < 0) {
-                    b = xnuevo;
-                } else if(f(xnuevo) * f(b) < 0){
-                    a = xnuevo;
-                } else {
-                    break;
+                // Cálculo del error relativo porcentual
+                if (iteracion > 1) {
+                    errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
                 }
 
-                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
-                resultados.push([iteracion, `[${a.toFixed(5)}, ${b.toFixed(5)}]`, xnuevo.toFixed(4), f(xnuevo).toFixed(4), errorRelativo.toFixed(4)]);
-                
+                resultados.push({
+                    iteracion: iteracion,
+                    intervalo: `[${a.toFixed(4)}, ${b.toFixed(4)}]`,
+                    xnuevo: xnuevo.toFixed(6),
+                    fxnuevo: f(xnuevo).toFixed(6),
+                    error: errorRelativo.toFixed(6)
+                });
+
+                // Actualizar intervalos según el método seleccionado o híbrido
+                if (f(a) * f(xnuevo) < 0) {
+                    b = xnuevo;
+                } else {
+                    a = xnuevo;
+                }
+
                 xanterior = xnuevo;
 
                 // Guardar la raíz aproximada cuando se alcanza el margen de error
@@ -275,32 +301,45 @@
                 }
             }
 
-            if (raizAproximada !== null) {
-                console.log(`Raíz aproximada encontrada: ${raizAproximada.x}`);
-                generarGrafico(funcionSeleccionada, intervaloA, intervaloB, f, raizAproximada);
-            } else {
-                alert("No se encontró una raíz dentro del margen de error especificado.");
-            }
-
+            // Mostrar los resultados en la tabla
             mostrarResultados(resultados);
+            // Actualizar el gráfico y resaltar la raíz aproximada
+            actualizarGrafico(funcionSeleccionada, intervaloA, intervaloB, f, raizAproximada);
         }
 
-        function mostrarResultados(resultados) {
-            const tabla = document.getElementById("resultados").getElementsByTagName('tbody')[0];
-            tabla.innerHTML = "";
+        // Función para obtener la función seleccionada y el margen de error adecuado
+        function obtenerFuncionYError(funcionSeleccionada) {
+            switch (funcionSeleccionada) {
+                case 'f1':
+                    return { f: (x) => x - Math.cos(x), margenError: 0.05 };
+                case 'f2':
+                    return { f: (x) => Math.pow(x, 3) - x - 1, margenError: 0.05 };
+                case 'f3':
+                    return { f: (x) => Math.pow(x, 2) - 2, margenError: 0.00001 };
+                case 'f4':
+                    return { f: (x) => x - 4 + Math.log(x), margenError: 0.001 };
+            }
+        }
 
-            resultados.forEach((resultado) => {
-                let fila = tabla.insertRow();
-                resultado.forEach((dato) => {
-                    let celda = fila.insertCell();
-                    celda.innerHTML = dato;
-                });
+        // Mostrar los resultados en la tabla
+        function mostrarResultados(resultados) {
+            const resultadosTabla = document.querySelector("#resultados tbody");
+            resultadosTabla.innerHTML = ''; // Limpiar la tabla
+            resultados.forEach(resultado => {
+                const fila = `
+                    <tr>
+                        <td>${resultado.iteracion}</td>
+                        <td>${resultado.intervalo}</td>
+                        <td>${resultado.xnuevo}</td>
+                        <td>${resultado.fxnuevo}</td>
+                        <td>${resultado.error}%</td>
+                    </tr>
+                `;
+                resultadosTabla.innerHTML += fila;
             });
         }
 
-        function generarGrafico(funcionSeleccionada, a, b, f, raizAproximada) {
-            //const valoresY = valoresX.map(x => f(parseFloat(x)));
-
+        function actualizarGrafico(funcionSeleccionada, a, b, f, raizAproximada) {
             const ctx = document.getElementById('grafico').getContext('2d');
             const data = [];
             const intervaloA = parseFloat(a);
@@ -401,5 +440,4 @@
         }
     </script>
 </body>
-
 </html>
