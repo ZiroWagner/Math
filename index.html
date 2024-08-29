@@ -295,7 +295,7 @@
                 errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
                 resultados.push([iteracion, `[${a.toFixed(5)}, ${b.toFixed(5)}]`, xnuevo.toFixed(4), f(xnuevo).toFixed(4), errorRelativo.toFixed(4)]);
 
-                if (metodoSeleccionado === "steffensen" || "newton-raphson"){
+                if (metodoSeleccionado ===  "steffensen" || metodoSeleccionado === "newton-raphson"){
                     a = xnuevo;
                 } else {
                     if (f(a) * f(xnuevo) < 0) {
