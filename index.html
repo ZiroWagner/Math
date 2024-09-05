@@ -41,9 +41,15 @@
             color: #000;
         }
 
+        .form-group div{
+            width: 100%;
+            display: flex;
+            align-items: start;
+        }
+
         label {
+            margin: 0 5px;
             font-weight: bold;
-            margin-bottom: 5px;
             color: #000;
         }
 
@@ -61,6 +67,7 @@
         }
 
         button {
+            font-weight: bold;
             background-color: #222332;
             color: white;
             border: none;
@@ -86,6 +93,7 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            margin-bottom: 20px;
         }
 
         th,
@@ -111,7 +119,6 @@
         }
     </style>
 </head>
-
 <body>
     <div class="container">
         <h1>Métodos Numéricos</h1>
@@ -141,13 +148,16 @@
         </div>
 
         <div class="form-group">
-            <label for="intervaloA">Intervalo A:</label>
-            <input type="text" id="intervaloA" placeholder="Ingrese el valor de A">
-        </div>
-
-        <div class="form-group">
-            <label for="intervaloB">Intervalo B:</label>
-            <input type="text" id="intervaloB" placeholder="Ingrese el valor de B [Ya no será necesário para Steffensen - Newton-Raphson">
+            <div>
+                <div>
+                    <label for="intervaloA">Intervalo A:</label>
+                    <input type="text" id="intervaloA" placeholder="Ingrese el valor de A">
+                </div>
+                <div>
+                    <label for="intervaloB">Intervalo B:</label>
+                    <input type="text" id="intervaloB" placeholder="Ingrese el valor de B [Ya no será necesário para Steffensen - Newton-Raphson">
+                </div>
+            </div>
         </div>
 
         <div class="form-group">
@@ -175,7 +185,21 @@
                 </thead>
                 <tbody></tbody>
             </table>
+            <table id="comparacion" style="display:none;">
+                <thead>
+                    <tr>
+                        <th>Método</th>
+                        <th>Intervalos</th>
+                        <th>x nuevo</th>
+                        <th>f(x nuevo)</th>
+                        <th>Error Relativo (%)</th>
+                        <th>Iteraciones</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
         </div>
+        <button onclick="mostrarComparacion()">Mostrar Comparación</button>
 
         <canvas id="grafico"></canvas>
     </div>
@@ -183,22 +207,16 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@1.2.1/dist/chartjs-plugin-zoom.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/10.0.0/math.min.js"></script>
-
+    
     <script>
         let chart;
+        let resultadosMetodos = {};
 
         const funcionesPredefinidas = {
-            f1: (x) => x - Math.cos(x),
-            f2: (x) => Math.pow(x, 3) - x - 1,
-            f3: (x) => Math.pow(x, 2) - 2,
-            f4: (x) => x - 4 + Math.log(x)
-        };
-
-        const margenesError = {
-            f1: 0.05,
-            f2: 0.05,
-            f3: 0.00001,
-            f4: 0.001
+            f1: { func: (x) => x - Math.cos(x), df: (x) => 1 + Math.sin(x), error: 0.05 },
+            f2: { func: (x) => Math.pow(x, 3) - x - 1, df: (x) => 3 * Math.pow(x, 2) - 1, error: 0.05 },
+            f3: { func: (x) => Math.pow(x, 2) - 2, df: (x) => 2 * x, error: 0.00001 },
+            f4: { func: (x) => x - 4 + Math.log(x), df: (x) => 1 - (1 / x), error: 0.001 }
         };
 
         function toggleFuncionInput() {
@@ -215,115 +233,105 @@
             const decimales = parseInt(document.getElementById("decimales").value) || 4;
             let f, df, margenError;
 
+            // Seleccionar función y derivada
             if (funcionSeleccionada === "custom") {
-                let funcionPersonalizada = document.getElementById("funcionPersonalizada").value;
-                console.log("Función procesada: ", funcionPersonalizada); // Log para verificar la función procesada
+                const funcionPersonalizada = document.getElementById("funcionPersonalizada").value;
                 try {
-                    // Validar y construir la función utilizando Math.js
                     const node = math.parse(funcionPersonalizada);
-                    const code = node.compile(); // Compilar el código con Math.js
+                    const code = node.compile();
                     f = (x) => code.evaluate({ x });
 
-                    // Calcular la derivada de la función
                     const derivativeNode = math.derivative(node, 'x');
                     const derivativeCode = derivativeNode.compile();
                     df = (x) => derivativeCode.evaluate({ x });
                 } catch (e) {
-                    console.error("La función personalizada ingresada no es válida.",funcionPersonalizada);
-                    console.error(e.message);
+                    alert("La función personalizada no es válida.");
                     return;
                 }
                 margenError = margenErrorUsuario || 0.01;
             } else {
-                f = funcionesPredefinidas[funcionSeleccionada];
-                margenError = margenErrorUsuario || margenesError[funcionSeleccionada];
-
-                 // Derivadas aproximadas para las funciones predefinidas
-                if (funcionSeleccionada === "f1") {
-                    df = (x) => 1 + Math.sin(x); // Derivada de f1: f'(x) = 1 + sin(x)
-                } else if (funcionSeleccionada === "f2") {
-                    df = (x) => 3 * Math.pow(x, 2) - 1; // Derivada de f2: f'(x) = 3x^2 - 1
-                } else if (funcionSeleccionada === "f3") {
-                    df = (x) => 2 * x; // Derivada de f3: f'(x) = 2x
-                } else if (funcionSeleccionada === "f4") {
-                    df = (x) => 1 - (1 / x); // Derivada de f4: f'(x) = 1 - 1/x
-                }
+                f = funcionesPredefinidas[funcionSeleccionada].func;
+                df = funcionesPredefinidas[funcionSeleccionada].df;
+                margenError = margenErrorUsuario || funcionesPredefinidas[funcionSeleccionada].error;
             }
 
-            let a = intervaloA,
-                b = intervaloB,
-                xnuevo, xanterior = 0,
-                errorRelativo = 100,
-                iteracion = 0,
-                resultados = [],
-                maxIteraciones = 100,
-                raizAproximada = null;
+            // Métodos a utilizar
+            const metodos = {
+                'Bisección': biseccion,
+                'Falsa Posición': falsaPosicion,
+                'Híbrido': hibrido,
+                'Secante': secante,
+                'Newton-Raphson': newtonRaphson,
+                'Steffensen': steffensen
+            };
 
-            if(metodoSeleccionado === "newton-raphson"){
-                xanterior = (a + b) / 2;
+            // Guardar resultados finales de cada método
+            //resultadosMetodos = {};
+
+            for (let metodo in metodos) {
+                let resultados = metodos[metodo](intervaloA, intervaloB, f, df, margenError, decimales);
+                resultadosMetodos[metodo] = resultados; // Guardar solo el resultado final
             }
 
-            while (errorRelativo > margenError && iteracion < maxIteraciones) {
+            let a = intervaloA, b = intervaloB, xnuevo, xanterior = 0;
+            let errorRelativo = 100, iteracion = 0, resultados = [];
+
+            while (errorRelativo > margenError && iteracion < 100) {
                 iteracion++;
-                let xnuevoBiseccion = (a + b) / 2;
-                let xnuevoFalsaPosicion = (a * f(b) - b * f(a)) / (f(b) - f(a));
-                let xnuevoSecante = b - (f(b) * (b - a)) / (f(b) - f(a));
-                let xnuevoSteffensen;
-                let xnuevoNewtonRaphson = xanterior - (f(xanterior) / df(xanterior));
 
-                if (metodoSeleccionado === "newton-raphson") {
-                    xnuevo = xnuevoNewtonRaphson;
-                } else if (metodoSeleccionado === "steffensen") {
-                    const fx = f(a);
-                    const f_x_plus_fx = f(a + fx);
-                    const denominador = f_x_plus_fx - fx;
-                    const epsilon = 1e-10; // Umbral de tolerancia para evitar divisiones por cero
-
-                    if (Math.abs(denominador) < epsilon) {
-                        alert("El método de Steffensen no puede continuar: división por cero o resultado muy cercano a cero.");
-                        break; // O puedes cambiar a otro método aquí si lo prefieres
-                    }
-
-                    xnuevoSteffensen = a - (Math.pow(fx, 2)) / denominador;
-                    xnuevo = xnuevoSteffensen;
-                }else if (metodoSeleccionado === "hibrido") {
-                    const errorBiseccion = Math.abs((xnuevoBiseccion - xanterior) / xnuevoBiseccion) * 100;
-                    const errorFalsaPosicion = Math.abs((xnuevoFalsaPosicion - xanterior) / xnuevoFalsaPosicion) * 100;
-                    xnuevo = errorFalsaPosicion < errorBiseccion ? xnuevoFalsaPosicion : xnuevoBiseccion;
-                } else if (metodoSeleccionado === "biseccion") {
-                    xnuevo = xnuevoBiseccion;
-                } else if (metodoSeleccionado === "secante"){
-                    xnuevo = xnuevoSecante
-                } else {
-                    xnuevo = xnuevoFalsaPosicion;
+                switch (metodoSeleccionado) {
+                    case "biseccion":
+                        xnuevo = (a + b) / 2;
+                        break;
+                    case "falsaPosicion":
+                        xnuevo = (a * f(b) - b * f(a)) / (f(b) - f(a));
+                        break;
+                    case "hibrido":
+                        const xnBiseccion = (a + b) / 2;
+                        const xnFalsaPosicion = (a * f(b) - b * f(a)) / (f(b) - f(a));
+                        xnuevo = Math.abs(xnFalsaPosicion - xanterior) < Math.abs(xnBiseccion - xanterior) ? xnFalsaPosicion : xnBiseccion;
+                        break;
+                    case "secante":
+                        if (f(b) === f(a)) {
+                            alert("División por cero en el método de la Secante.");
+                            return;
+                        }
+                        xnuevo = b - (f(b) * (b - a)) / (f(b) - f(a));
+                        break;
+                    case "newton-raphson":
+                        if (df(xanterior) === 0) {
+                            alert("La derivada es cero. No se puede continuar con Newton-Raphson.");
+                            return;
+                        }
+                        xanterior = a;
+                        xnuevo = xanterior - (f(xanterior) / df(xanterior));
+                        break;
+                    case "steffensen":
+                        const fx = f(a);
+                        const f_x_plus_fx = f(a + fx);
+                        if (Math.abs(f_x_plus_fx - fx) < 1e-10) {
+                            alert("El método de Steffensen no puede continuar debido a una posible división por cero.");
+                            return;
+                        }
+                        xnuevo = a - Math.pow(fx, 2) / (f_x_plus_fx - fx);
+                        break;
                 }
 
                 errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
-                resultados.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(4), errorRelativo.toFixed(4)]);
+                resultados.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
 
-                if (metodoSeleccionado ===  "steffensen" || metodoSeleccionado === "newton-raphson"){
+                if (metodoSeleccionado === "newton-raphson" || metodoSeleccionado === "steffensen") {
                     a = xnuevo;
                 } else {
-                    if (f(a) * f(xnuevo) < 0) {
-                        b = xnuevo;
-                    } else if(f(xnuevo) * f(b) < 0){
-                        a = xnuevo;
-                    } else {
-                        break;
-                    }
+                    if (f(a) * f(xnuevo) < 0) b = xnuevo;
+                    else a = xnuevo;
                 }
-                
                 xanterior = xnuevo;
-
-                // Guardar la raíz aproximada cuando se alcanza el margen de error
-                if (errorRelativo <= margenError) {
-                    raizAproximada = { x: xnuevo, y: f(xnuevo) };
-                }
             }
 
-            if (raizAproximada !== null) {
-                console.log(`[${metodoSeleccionado}]Raíz aproximada encontrada: ${raizAproximada.x}`);
-                generarGrafico(funcionSeleccionada, intervaloA, intervaloB, f, raizAproximada);
+            if (xnuevo !== null) {
+                console.log(`[${metodoSeleccionado}]Raíz aproximada encontrada: ${xnuevo} Iteraciones: ${iteracion}`);
+                generarGrafico(funcionSeleccionada, intervaloA, intervaloB, f, xnuevo);
             } else {
                 alert("No se encontró una raíz dentro del margen de error especificado.");
             }
@@ -342,20 +350,40 @@
                     celda.innerHTML = dato;
                 });
             });
+
+            document.getElementById("resultados").style.display = "table";
+            document.getElementById("comparacion").style.display = "none";
+        }
+
+        function mostrarComparacion() {
+            const tablaComparacion = document.getElementById("comparacion").getElementsByTagName('tbody')[0];
+            tablaComparacion.innerHTML = "";
+            
+
+            Object.keys(resultadosMetodos).forEach(metodo => {
+                let resultadoFinal = resultadosMetodos[metodo][resultadosMetodos[metodo].length-1];
+                let fila = tablaComparacion.insertRow();
+
+                fila.insertCell().innerHTML = metodo;
+                fila.insertCell().innerHTML = `${resultadoFinal[1]}`;
+                fila.insertCell().innerHTML = resultadoFinal[2];
+                fila.insertCell().innerHTML = resultadoFinal[3];
+                fila.insertCell().innerHTML = resultadoFinal[4];
+                fila.insertCell().innerHTML = resultadoFinal[0];
+            });
+
+            document.getElementById("resultados").style.display = "none";
+            document.getElementById("comparacion").style.display = "table";
         }
 
         function generarGrafico(funcionSeleccionada, a, b, f, raizAproximada) {
-            //const valoresY = valoresX.map(x => f(parseFloat(x)));
-
             const ctx = document.getElementById('grafico').getContext('2d');
             const data = [];
             
-             // Crear un rango amplio de valores de x para trazar la línea de la función
             for (let x = parseFloat(a) - 2; x <= parseFloat(b) + 2; x += 0.1) {
                 data.push({ x, y: f(x) });
             }
 
-            // Destruir el gráfico anterior si existe
             if (chart) {
                 chart.destroy();
             }
@@ -368,10 +396,7 @@
                 showLine: true,
                 tension: 0.1,
                 borderWidth: 2,
-                //pointRadius: 0,  // Ocultar puntos
-                //lineTension: 0.1 // Linea suave
             }, {
-                // Marcar Intervalo A
                 label: 'Intervalo A',
                 data: [{ x: parseFloat(a), y: f(a) }],
                 borderColor: 'rgba(255, 99, 132, 1)',
@@ -379,7 +404,6 @@
                 pointRadius: 7,
                 pointHoverRadius: 9,
             }, {
-                // Marcar Intervalo B
                 label: 'Intervalo B',
                 data: [{ x: parseFloat(b), y: f(b) }],
                 borderColor: 'rgba(255, 99, 132, 1)',
@@ -388,11 +412,10 @@
                 pointHoverRadius: 9,
             }];
 
-            // Agregar el punto de la raíz aproximada si existe
             if (raizAproximada) {
                 datasets.push({
                     label: 'Raíz Aproximada',
-                    data: [{ x: raizAproximada.x, y: raizAproximada.y }],
+                    data: [{ x: raizAproximada, y: f(raizAproximada) }],
                     borderColor: 'rgba(0, 255, 0, 1)',
                     backgroundColor: 'rgba(0, 255, 0, 0.5)',
                     pointRadius: 8,
@@ -442,10 +465,151 @@
                 }
             };
 
-            // Crear un nuevo gráfico
             chart = new Chart(ctx, config);
+        }
+
+        function biseccion(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior = 0;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+                xnuevo = (a + b) / 2;
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                if (f(a) * f(xnuevo) < 0) b = xnuevo;
+                    else a = xnuevo;
+
+                xanterior = xnuevo;
+            }
+            return iteraciones;
+        }
+
+        function falsaPosicion(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior = 0;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+
+                xnuevo = (a * f(b) - b * f(a)) / (f(b) - f(a));
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                if (f(a) * f(xnuevo) < 0) b = xnuevo;
+                    else a = xnuevo;
+
+                xanterior = xnuevo;
+            }
+            return iteraciones;
+        }
+
+        function hibrido(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior=0;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+
+                const xnBiseccion = (a + b) / 2;
+                const xnFalsaPosicion = (a * f(b) - b * f(a)) / (f(b) - f(a));
+                xnuevo = Math.abs(xnFalsaPosicion - xanterior) < Math.abs(xnBiseccion - xanterior) ? xnFalsaPosicion : xnBiseccion;
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                if (f(a) * f(xnuevo) < 0) b = xnuevo;
+                    else a = xnuevo;
+
+                xanterior = xnuevo;
+            }
+            return iteraciones;
+        }
+
+        function secante(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior=0;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+
+                if (f(b) === f(a)) {
+                    alert("División por cero en el método de la Secante.");
+                    return;
+                }
+                xnuevo = b - (f(b) * (b - a)) / (f(b) - f(a));
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                if (f(a) * f(xnuevo) < 0) b = xnuevo;
+                    else a = xnuevo;
+
+                xanterior = xnuevo;
+            }
+            return iteraciones;
+        }
+
+        function newtonRaphson(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior = a;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+
+                if (df(xanterior) === 0) {
+                    alert("La derivada es cero. No se puede continuar con Newton-Raphson.");
+                    return;
+                }
+
+                xnuevo = xanterior - (f(xanterior) / df(xanterior));
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                xanterior = xnuevo;
+            }
+            return iteraciones;
+        }
+
+        function steffensen(a, b, f, df, margenError, decimales) {
+            let iteraciones = [];
+            let errorRelativo = 100;
+            let iteracion = 0;
+            let xnuevo, xanterior = 0;
+
+            while (errorRelativo > margenError) {
+                iteracion++;
+
+                const fx = f(a);
+                const f_x_plus_fx = f(a + fx);
+                if (Math.abs(f_x_plus_fx - fx) < 1e-10) {
+                    alert("El método de Steffensen no puede continuar debido a una posible división por cero.");
+                    return;
+                }
+                xnuevo = a - Math.pow(fx, 2) / (f_x_plus_fx - fx);
+
+                errorRelativo = Math.abs((xnuevo - xanterior) / xnuevo) * 100;
+                iteraciones.push([iteracion, `[${a.toFixed(3)}, ${b.toFixed(3)}]`, xnuevo.toFixed(decimales), f(xnuevo).toFixed(decimales), errorRelativo.toFixed(decimales)]);
+
+                a = xnuevo;
+                xanterior = xnuevo;
+            }
+            return iteraciones;
         }
     </script>
 </body>
-
 </html>
